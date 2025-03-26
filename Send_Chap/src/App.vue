@@ -1,14 +1,21 @@
 <template>
+  <!-- Formulaire pour ajouter ou modifier une tâche -->
   <form @submit.prevent="submitForm">
     <fieldset>
       <legend>Enter your task to accomplish</legend>
 
+      <!-- Champ pour entrer le titre de la tâche -->
       <input type="text" placeholder="Enter your task here please" v-model="taskTitle" />
+
+      <!-- Champ pour entrer la description de la tâche -->
       <textarea placeholder="Enter description's task" v-model="taskDescription"></textarea>
+
+      <!-- Bouton de soumission du formulaire -->
       <button type="submit">Submit</button>
     </fieldset>
   </form>
 
+  <!-- Affichage de la liste des tâches -->
   <fieldset>
     <legend>List of all tasks</legend>
     <table>
@@ -28,13 +35,14 @@
           <td>{{ task.title }}</td>
           <td>{{ task.description }}</td>
           <td>{{ formatDate(task.date) }}</td>
-          <!-- Affichage de la date formatée -->
+
+          <!-- Bouton pour supprimer la tâche -->
           <td>
-            <!-- Bouton de suppression de la tâche -->
             <button @click="deleteTask(task.id)">Delete Task</button>
           </td>
+
+          <!-- Bouton pour modifier la tâche -->
           <td>
-            <!-- Bouton de modification de la tâche -->
             <button @click="editTask(task)">Edit Task</button>
           </td>
         </tr>
@@ -46,83 +54,101 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 
-// Variables liées aux données du formulaire
-const taskTitle = ref('')
-const taskDescription = ref('')
-const tasks = ref<
-{ id: number; 
-  title: string; 
-  description: 
-  string; date:  
-string 
-}[]>([])
-const taskToEdit = ref<{ 
-  id: number | null; 
-  title: string; 
-  description: string 
-} | null>(null)
 
-// Fonction pour formater la date
+// je veux que les utilisateur n'entrent que des phrses
+// correctement orthographiées de leur tâches
+//  et aussi a la soumission du formulaire je dois verifier qu'ils
+// respecte ma condition 
+
+
+
+// Déclaration des variables réactives avec `ref` pour stocker les valeurs dynamiques
+const taskTitle = ref('') // Stocke le titre de la tâche en cours de saisie
+const taskDescription = ref('') // Stocke la description de la tâche en cours de saisie
+
+// Liste réactive des tâches stockant les objets des tâches
+const tasks = ref<{ id: number; title: string; description: string; date: string }[]>([])
+
+// Variable qui stocke la tâche en cours de modification
+const taskToEdit = ref<{ id: number | null; title: string; description: string } | null>(null)
+
+// Fonction pour formater une date en une chaîne lisible
 const formatDate = (timestamp: string) => {
-  const parsedDate = new Date(Number(timestamp)) // Convertir le timestamp en date
+  const parsedDate = new Date(Number(timestamp)) // Convertit le timestamp en objet Date
+
   if (isNaN(parsedDate.getTime())) {
-    return '' // Retourne une chaîne vide si la date est invalide
+    // NaN : signifie Not a Nunber
+    return '' // Retourne une chaîne vide si la conversion échoue
   }
+  // Intl.DateTimeFormat fait partie de l'API d'internationalisation
+  // (Intl) de JavaScript. Il permet d'afficher une date dans un format
+  // adapté à une langue donnée.
   return new Intl.DateTimeFormat('fr-FR', {
-    weekday: 'long', // Jour de la semaine (ex: lundi)
-    year: 'numeric', // Année (ex: 2025)
-    month: 'long', // Mois (ex: mars)
-    day: 'numeric', // Jour du mois (ex: 26)
+    // Option permettant d'afficher le jour de la semaine en toutes lettres
+    // Exemple : "lundi", "mardi", "mercredi"
+    weekday: 'long', // Jour de la semaine
+    // Option pour afficher l'année sous forme de nombre à 4 chiffres
+    // Exemple : "2025"
+    year: 'numeric', // Année
+    // Option pour afficher le mois en toutes lettres
+    // Exemple : "janvier", "février", "mars"
+    month: 'long', // Mois
+    // Option pour afficher le numéro du jour dans le mois
+    // Exemple : "1", "15", "30"
+    day: 'numeric', // Jour du mois
+    timeZoneName: 'short', // Affiche le fuseau horaire (ex: CET, GMT)
   }).format(parsedDate)
 }
 
 // Fonction pour soumettre le formulaire (ajouter ou modifier une tâche)
 const submitForm = () => {
+  // Vérification que les champs ne sont pas vides
   if (!taskTitle.value.trim() || !taskDescription.value.trim()) {
     alert('Please enter both title and description')
-    return // Annule le traitement si les champs ne sont pas remplis
+    return // Interrompt la fonction si les champs sont vides
   }
 
-  const currentDate = Date.now().toString() // Récupère le timestamp actuel (en millisecondes)
+  const currentDate = Date.now().toString() // Génère un timestamp pour la date actuelle
 
   if (taskToEdit.value) {
-    const task = tasks.value.find(t => t.id === taskToEdit.value.id)
+    // Si une tâche est en cours de modification, on met à jour ses valeurs
+    const task = tasks.value.find((t) => t.id === taskToEdit.value.id)
     if (task) {
       task.title = taskTitle.value
       task.description = taskDescription.value
       task.date = currentDate // Mise à jour de la date
     }
-    taskToEdit.value = null // Réinitialiser l'édition
+    taskToEdit.value = null // Réinitialise le mode édition
   } else {
-    // Ajoute la tâche à la liste avec la date actuelle
+    // Ajout d'une nouvelle tâche si aucune tâche n'est en édition
     tasks.value.push({
-      id: Date.now(), // Utilisation de Date.now() pour générer un identifiant unique
+      id: Date.now(), // Génère un ID unique en utilisant le timestamp
       title: taskTitle.value,
       description: taskDescription.value,
       date: currentDate,
     })
   }
 
-  // Réinitialiser les champs du formulaire après soumission
+  // Réinitialisation des champs après soumission
   taskTitle.value = ''
   taskDescription.value = ''
 }
 
-// Fonction pour modifier une tâche
+// Fonction pour passer en mode édition d'une tâche spécifique
 const editTask = (task: { id: number; title: string; description: string; date: string }) => {
-  taskTitle.value = task.title
-  taskDescription.value = task.description
-  taskToEdit.value = { id: task.id, title: task.title, description: task.description } // Conserve l'ID de la tâche à éditer
+  taskTitle.value = task.title // Remplit le champ titre avec la valeur existante
+  taskDescription.value = task.description // Remplit le champ description avec la valeur existante
+  taskToEdit.value = { id: task.id, title: task.title, description: task.description } // Stocke l'ID de la tâche à éditer
 }
 
-// Fonction pour supprimer une tâche
+// Fonction pour supprimer une tâche en filtrant la liste des tâches
 const deleteTask = (taskId: number) => {
-  tasks.value = tasks.value.filter((task) => task.id !== taskId) // Supprime la tâche de la liste
+  tasks.value = tasks.value.filter((task) => task.id !== taskId) // Supprime la tâche en fonction de son ID
 }
 </script>
 
 <style scoped>
-/* Style pour visualiser le contour du fieldset */
+/* Style du formulaire et de la liste des tâches */
 fieldset {
   border: 2px solid #4caf50; /* Bordure verte */
   padding: 20px;
@@ -132,8 +158,8 @@ fieldset {
 legend {
   font-weight: bold;
   font-size: 1.2em;
-  color: #4caf50; /* Couleur du texte du titre */
-  padding: 0 10px; /* Pour ajouter un peu d'espace autour du titre */
+  color: #4caf50; /* Couleur verte */
+  padding: 0 10px;
 }
 
 table {
