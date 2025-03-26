@@ -1,102 +1,159 @@
-<script setup lang="ts">
-import { computed, ref } from 'vue'
-import CheckBox from './components/CheckBox.vue'
-// Définir le type pour une tâche avec types script
-interface Todo {
-  title: string
-  completed: boolean
-  date: number
-}
-
-const todos_Input = ref('')
-// le todos_Input est pour la pour capturer l'entrer de l'utilisateur, je lui ais passer une ref car elle peut
-// changer a tout moment docn en quelque sorte todos_Input est une variable dynamique car elle n'est pas figée
-
-const todos = ref<Todo[]>([
-  { title: 'Tâche par défaut', completed: true, date: Date.now() },
-  { title: 'Tâche par défaut 1', completed: false, date: Date.now() },
-]) // Utiliser le type Todo pour l'array de tâches
-
-const Add_Task = () => {
-  if (todos_Input.value.trim()) {
-    // Vérifie si l'input n'est pas vide après suppression des espaces
-    todos.value.push({
-      title: todos_Input.value,
-      completed: false, // La tâche est initialement marquée comme non complétée
-      date: Date.now(),
-    })
-    todos_Input.value = '' // Réinitialise le champ de saisie après ajout
-  }
-}
-const remaining_todos = computed(() => {
-  return todos.value.filter((t) => t.completed === false).length
-})
-
-const Remove_Task = (index: number) => {
-  todos.value.splice(index, 1)
-}
-// computed permet ici d'atendre les changments avec de reagir docn
-// la fonction n'est pas appeler quand il n'y a pas de changement
-// c'est lorsqu'on a besoin d'une valeur qui derive d'une autre valeur qui es elle meme
-// dinamique on utilise la fonction Computed
-const Todo_Sort = computed(() => {
-  console.log('Todo_Sort')
-  const Todo_Sort = [...todos.value].sort((a, b) => (a.completed > b.completed ? 1 : -1))
-  if (Hide_Completed.value === true) {
-    return Todo_Sort.filter((t) => t.completed === false)
-  }
-  return Todo_Sort
-})
-
-const Hide_Completed = ref(false)
-</script>
-<!-- ln twuiter  -->
 <template>
-  <form @submit.prevent="Add_Task">
-    <fieldset role="group">
-      <input type="text" placeholder="Name Of Task To Execute" v-model="todos_Input" required />
-      <button :disabled="todos_Input.length === 0" type="submit">Add My Task</button>
-    </fieldset>
-    <fieldset title="print">
-      <div v-if="todos.length === 0">Il n'y a pas de tâches</div>
-      <ul v-else>
-        <li
-          v-for="(todo, index) in Todo_Sort"
-          :key="todo.date"
-          :class="{ completed: todo.completed }"
-        >
-          <label>
-          
+  <form @submit.prevent="submitForm">
+    <fieldset>
+      <legend>Enter your task to accomplish</legend>
 
-            
-            <input type="checkbox" v-model="todo.completed" /> {{ todo.title }}
-            <button @click="Remove_Task(index)">Supprimer</button>
-          </label>
-        </li>
-      </ul>
-      <label>
-         <input type="checkbox" v-model="Hide_Completed" />
-          MASK THE COMPLETED TASK
-        </label>
-      <p v-if="remaining_todos > 0">
-        Il reste {{ remaining_todos }} tâche{{ remaining_todos > 1 ? 's' : ' ' }} à faire
-      </p>
+      <input type="text" placeholder="Enter your task here please" v-model="taskTitle" />
+      <textarea placeholder="Enter description's task" v-model="taskDescription"></textarea>
+      <button type="submit">Submit</button>
     </fieldset>
   </form>
+
+  <fieldset>
+    <legend>List of all tasks</legend>
+    <table>
+      <thead>
+        <tr>
+          <th>Title Number</th>
+          <th>Title Task</th>
+          <th>Description Task</th>
+          <th>Date Task</th>
+          <th>Del Task</th>
+          <th>Edt Task</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="(task, index) in tasks" :key="task.id">
+          <td>Task N°{{ index + 1 }}</td>
+          <td>{{ task.title }}</td>
+          <td>{{ task.description }}</td>
+          <td>{{ formatDate(task.date) }}</td>
+          <!-- Affichage de la date formatée -->
+          <td>
+            <!-- Bouton de suppression de la tâche -->
+            <button @click="deleteTask(task.id)">Delete Task</button>
+          </td>
+          <td>
+            <!-- Bouton de modification de la tâche -->
+            <button @click="editTask(task)">Edit Task</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </fieldset>
 </template>
 
-<style>
-.checkbox {
-  color: #00ff0d;
+<script setup lang="ts">
+import { ref } from 'vue'
+
+// Variables liées aux données du formulaire
+const taskTitle = ref('')
+const taskDescription = ref('')
+const tasks = ref<
+{ id: number; 
+  title: string; 
+  description: 
+  string; date:  
+string 
+}[]>([])
+const taskToEdit = ref<{ 
+  id: number | null; 
+  title: string; 
+  description: string 
+} | null>(null)
+
+// Fonction pour formater la date
+const formatDate = (timestamp: string) => {
+  const parsedDate = new Date(Number(timestamp)) // Convertir le timestamp en date
+  if (isNaN(parsedDate.getTime())) {
+    return '' // Retourne une chaîne vide si la date est invalide
+  }
+  return new Intl.DateTimeFormat('fr-FR', {
+    weekday: 'long', // Jour de la semaine (ex: lundi)
+    year: 'numeric', // Année (ex: 2025)
+    month: 'long', // Mois (ex: mars)
+    day: 'numeric', // Jour du mois (ex: 26)
+  }).format(parsedDate)
 }
-.completed label {
-  opacity: 0.5;
-  text-decoration: line-through;
-  color: #00ff0d;
 
-  transition: color 0.3s ease-in-out;
+// Fonction pour soumettre le formulaire (ajouter ou modifier une tâche)
+const submitForm = () => {
+  if (!taskTitle.value.trim() || !taskDescription.value.trim()) {
+    alert('Please enter both title and description')
+    return // Annule le traitement si les champs ne sont pas remplis
+  }
 
-  font-style: italic;
+  const currentDate = Date.now().toString() // Récupère le timestamp actuel (en millisecondes)
+
+  if (taskToEdit.value) {
+    const task = tasks.value.find(t => t.id === taskToEdit.value.id)
+    if (task) {
+      task.title = taskTitle.value
+      task.description = taskDescription.value
+      task.date = currentDate // Mise à jour de la date
+    }
+    taskToEdit.value = null // Réinitialiser l'édition
+  } else {
+    // Ajoute la tâche à la liste avec la date actuelle
+    tasks.value.push({
+      id: Date.now(), // Utilisation de Date.now() pour générer un identifiant unique
+      title: taskTitle.value,
+      description: taskDescription.value,
+      date: currentDate,
+    })
+  }
+
+  // Réinitialiser les champs du formulaire après soumission
+  taskTitle.value = ''
+  taskDescription.value = ''
+}
+
+// Fonction pour modifier une tâche
+const editTask = (task: { id: number; title: string; description: string; date: string }) => {
+  taskTitle.value = task.title
+  taskDescription.value = task.description
+  taskToEdit.value = { id: task.id, title: task.title, description: task.description } // Conserve l'ID de la tâche à éditer
+}
+
+// Fonction pour supprimer une tâche
+const deleteTask = (taskId: number) => {
+  tasks.value = tasks.value.filter((task) => task.id !== taskId) // Supprime la tâche de la liste
+}
+</script>
+
+<style scoped>
+/* Style pour visualiser le contour du fieldset */
+fieldset {
+  border: 2px solid #4caf50; /* Bordure verte */
+  padding: 20px;
+  margin: 20px 0;
+}
+
+legend {
   font-weight: bold;
+  font-size: 1.2em;
+  color: #4caf50; /* Couleur du texte du titre */
+  padding: 0 10px; /* Pour ajouter un peu d'espace autour du titre */
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: 10px;
+  text-align: left;
+  border: 1px solid #ddd;
+}
+
+th {
+  background-color: #4caf50;
+  color: white;
+}
+
+tbody tr:nth-child(even) {
+  background-color: #f2f2f2;
 }
 </style>
